@@ -1,0 +1,79 @@
+# Specifyevents that trigger pipelines
+trigger:
+  batch: true 
+  paths:
+    include:
+    - '*' #Citation v1 path
+    #- *****
+    #- *****
+    #- Configuration/*
+
+resources:
+  repositories:
+    - repository: 'ATLASYAMLTemplate'
+      name: 'atlasdevelopers/devsecops'
+      type: bitbucket
+      ref: main
+      endpoint: BitbucketServiceConnection
+
+
+# Specify your agent name 
+pool:
+  vmImage: windows-latest
+  demands: vstest
+
+# Configuration variables
+variables:
+  BuildConfiguration: 'release'
+  BuildPlatform: 'any cpu'
+  ProjectName: 'Atlas-Backend-BAU'
+
+# Build Stage
+stages:
+- stage: 'Build'
+  jobs:
+  - job:
+    variables :
+    - group: Processserver-KVGroup
+    - group: WR-Atlas-V1-BAU-VGroup
+    - group: WR-Atlas-Keyvault-V1-BAU-VGroup
+    steps:
+    # Using build template for code to build
+    - template: ATLAS\YAMLTemplate\COREBUILDBS.yml@ATLASYAMLTemplate
+      parameters: # Passing service related parameters for build
+        ProjectName: '$(ProjectName)' # Service Name
+        solution: Citation.Atlas/Citation.Atlas.ExclTests.sln
+        Workdir: Citation.Atlas/Citation.Atlas.WebApp
+        #workingDir: Citation.Atlas/Citation.Atlas.Wizard
+        BuildArgument: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactstagingdirectory)\\" /p:SkipExtraFilesOnServer=True'
+        BuildConfiguration: release
+        BuildPlatform: any cpu
+        mssolution: Citation.Atlas/Citation.Atlas.ProcessingService.Azure
+        msbuildArguments: '/p:Configuration=Release /p:DeployOnBuild=true /p:DeployTarget=Package /p:AutoParameterizationWebConfigConnectionStrings=false /target:Publish /p:PublishDir="$(build.artifactstagingdirectory)\\workerrole"'        
+        
+# BAU Deployment Stage
+- stage: 'BAU'
+  displayName: 'BAU' # Display name 
+  dependsOn: Build # Making the deployment dependent on build stage
+  condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/release'), not(eq(variables['Build.Reason'], 'PullRequest'))) # Condition on deployments
+  variables: # Setting of environment name and versionID
+    - name: EnvironmentName 
+      value: 'BAU'
+  jobs:
+  - deployment: 'Deploy'
+    displayName: 'Deploy App to ${{variables.EnvironmentName}}'
+    environment: '${{variables.EnvironmentName}}' # Environment name
+    strategy:
+      runOnce:
+        deploy:
+            steps:
+            - template: ATLAS\YAMLTemplate\COREDEPLOYBS.yml@ATLASYAMLTemplate # Using deploy template for deployment
+              parameters: # Passing service related parameters for deployment
+                ProjectName: '$(ProjectName)' # Project Name
+                ConnectionTypeName: 'AzureCloudServiceConnection-Dev' # Azure Subcription name
+                StorageAccount: dc3a6fd0348892135c   # for Backend Service Only
+                serviceName: citationbau-processing
+                ServiceLocation: North Europe  # for Backend Service Only
+                CsPkg: '$(Pipeline.Workspace)/$(ProjectName)/workerrole/$(ProjectName).cspkg' # for Backend Service Only
+                CsCfg: '$(Pipeline.Workspace)/$(ProjectName)/workerrole/ServiceConfiguration.Cloud.cscfg' # for Backend Service Only
+                slotName : 'Production'
