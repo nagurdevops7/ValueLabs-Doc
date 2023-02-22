@@ -1,0 +1,72 @@
+trigger: none
+pr: none
+
+pool:
+  vmImage: windows-latest
+  
+variables:
+    appgw_name: "hsdlegacy-clone-ag"
+    agwresourceGroupName: "clone_hsdirectportal_rg"
+    vm: "HSDPortalUATDB-VM-Clone"
+    resourceGroupName: "CLONE_HSDIRECTPORTAL_RG"
+    appServicePlan: "hsd-asplinux-uat-54184"
+    appServicePlanapi: "HSDWebApi-UAT-Plan"
+    appServicePlanapiclone: "clone-APIplan"
+    appServicePlanclone: "clone-defaultplan"
+    resourceGroupNameClone: "clone_hsdirectportal_rg"
+    defaultTier: "PremiumV2"
+    defaultWorkerSize: "Medium"
+
+stages:
+  - stage:
+    jobs:
+      - job: 
+        steps:
+          - checkout : none
+          - task: AzurePowerShell@5
+            inputs:
+              azureSubscription: 'Atlas PAYG(Converted to EA) (3a6fd034-c5f3-4201-9c86-473f1eb586f4)'
+              ScriptType: 'InlineScript'
+              Inline: |
+                # Application Gateway
+                $AppGw = Get-AzApplicationGateway -Name $env:appgw_name -ResourceGroupName $env:agwresourceGroupName
+                if ($AppGw.OperationalState -eq "Stopped") {
+                Write-Host "Starting the application gateway."
+                Start-AzApplicationGateway -ApplicationGateway  $AppGw
+                }
+                else {
+                    Write-Host "Application Gateway already running"
+                }
+              errorActionPreference: 'continue'
+              azurePowerShellVersion: 'LatestVersion'
+            
+
+          - task: AzurePowerShell@5
+            inputs:
+              azureSubscription: 'Atlas PAYG(Converted to EA) (3a6fd034-c5f3-4201-9c86-473f1eb586f4)'
+              ScriptType: 'InlineScript'
+              Inline: |
+                $vm= Get-AzVM -Name $env:vm -ResourceGroupName $env:resourcegroupname -Status
+                if ($vm.powerstate -ne "VM running") {
+                    
+                    Start-AzVM -Name $env:vm -ResourceGroupName  $env:resourcegroupname
+                }
+                else {
+                    Write-host "VM already running"
+                }
+              errorActionPreference: 'continue'
+              azurePowerShellVersion: 'LatestVersion'
+          
+          - task: AzurePowerShell@5
+            inputs:
+              azureSubscription: 'Atlas PAYG(Converted to EA) (3a6fd034-c5f3-4201-9c86-473f1eb586f4)'
+              ScriptType: 'InlineScript'
+              Inline: |
+          
+                Set-AzAppServicePlan -Name $env:appServicePlan -ResourceGroupName $env:resourceGroupName -Tier $env:defaultTier -WorkerSize $env:defaultWorkerSize
+                Set-AzAppServicePlan -Name $env:appServicePlanapi -ResourceGroupName $env:resourceGroupName -Tier $env:defaultTier -WorkerSize $env:defaultWorkerSize
+                Set-AzAppServicePlan -Name $env:appServicePlanapiclone -ResourceGroupName $env:resourceGroupNameClone -Tier $env:defaultTier -WorkerSize $env:defaultWorkerSize
+                Set-AzAppServicePlan -Name $env:appServicePlanclone -ResourceGroupName $env:resourceGroupNameClone -Tier $env:defaultTier -WorkerSize $env:defaultWorkerSize
+ 
+              azurePowerShellVersion: 'LatestVersion'
+              errorActionPreference: 'continue'
