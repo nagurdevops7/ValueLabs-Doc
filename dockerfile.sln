@@ -1,0 +1,45 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.3.32922.545
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.GraphQL.Gateway", "Unity.GraphQL.Gateway\Unity.GraphQL.Gateway.csproj", "{12CACC15-01C5-4ADF-AF5A-2F1839F6C154}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Tests", "Tests", "{63686586-30BD-4004-ACA1-484D97ABB377}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.GraphQL.Gateway.UnitTests", "Unity.GraphQL.Gateway.UnitTests\Unity.GraphQL.Gateway.UnitTests.csproj", "{ED74DA6A-1C0D-4698-89EE-786E647A7F30}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Unity.GraphQL.Gateway.IntegrationTests", "Unity.GraphQL.Gateway.IntegrationTests\Unity.GraphQL.Gateway.IntegrationTests.csproj", "{F09899AE-54EF-4118-AD25-895302DD34AA}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Unity.Gateway", "Unity.Gateway", "{61A79CB2-260C-42F7-87E9-9E9A73E5619C}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{12CACC15-01C5-4ADF-AF5A-2F1839F6C154}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{12CACC15-01C5-4ADF-AF5A-2F1839F6C154}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{12CACC15-01C5-4ADF-AF5A-2F1839F6C154}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{12CACC15-01C5-4ADF-AF5A-2F1839F6C154}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED74DA6A-1C0D-4698-89EE-786E647A7F30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED74DA6A-1C0D-4698-89EE-786E647A7F30}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED74DA6A-1C0D-4698-89EE-786E647A7F30}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED74DA6A-1C0D-4698-89EE-786E647A7F30}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F09899AE-54EF-4118-AD25-895302DD34AA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F09899AE-54EF-4118-AD25-895302DD34AA}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F09899AE-54EF-4118-AD25-895302DD34AA}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F09899AE-54EF-4118-AD25-895302DD34AA}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{12CACC15-01C5-4ADF-AF5A-2F1839F6C154} = {61A79CB2-260C-42F7-87E9-9E9A73E5619C}
+		{ED74DA6A-1C0D-4698-89EE-786E647A7F30} = {63686586-30BD-4004-ACA1-484D97ABB377}
+		{F09899AE-54EF-4118-AD25-895302DD34AA} = {63686586-30BD-4004-ACA1-484D97ABB377}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {DEBAA171-F878-47FC-B781-479E9D790693}
+	EndGlobalSection
+EndGlobal
