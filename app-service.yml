@@ -1,0 +1,12 @@
+
+  steps:
+
+  - template: ../steps/debug-vars.yaml
+
+  - task: AzureWebAppContainer@1
+    displayName: Deploy Web App Container
+    inputs:
+      appName:  $(webAppName)
+      azureSubscription: $(armConnection)
+      imageName: $(dockerImage):$(imageTag)
+    enabled: 'false'

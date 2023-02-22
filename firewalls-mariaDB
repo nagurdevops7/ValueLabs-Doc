@@ -1,0 +1,10 @@
+# Add firewall rules to "Azure Database for MariaDB server"
+$ip_addr='20.93.31.162','20.93.31.207','20.93.31.227','20.105.104.49','20.105.104.59','20.93.28.94','20.50.64.26'
+$i=0
+# $numarray = @(1,2,3,4,5,6,7,8,9,10,11,12 )
+foreach ($ip in $ip_addr) {
+az mariadb server firewall-rule create --resource-group 'hsd-rg-uat-54184' --server-name hsdserveruat --name FirewallRule$i --start-ip-address $ip --end-ip-address $ip
+
+    Write-Output "Adding firewall rule $i $ip"
+$i++
+}

@@ -1,0 +1,22 @@
+steps:
+- bash: |
+    echo ''
+    echo '===== Conditions ====='
+    echo 'isMain:         $(isMain)'
+    echo 'isTag:          $(isTag)'
+    echo 'isProduction:   $(isProduction)'
+    echo 'isPR:           $(isPR)'
+    echo 'isScheduled:    $(isScheduled)'
+    echo ''
+    echo '===== DOCKER ====='
+    echo 'imageTag:       $(imageTag)'
+    echo 'dockerImage:    $(dockerImage)'
+    echo 'dockerRegistry: $(dockerRegistry)'
+    echo 'acrConnection:  $(acrConnection)'
+    echo ''
+    echo '===== DEPLOYMENT ====='
+    echo 'webAppName:     $(webAppName)'
+    echo 'armConnection:  $(armConnection)'
+    echo 'resourceGroup:  $(resourceGroup)'
+    echo ''
+  displayName: Debug - Variables
