@@ -1,0 +1,12 @@
+connect-AzureAD
+connect-AzureAD -Tenant 2df7d6b8-bf3a-42e8-8acf-70a022cae177
+Install-Module Microsoft.Graph -Scope CurrentUser
+$appName = "MyApp-Nagur"
+if(!($myApp = Get-AzureADApplication -Filter "DisplayName eq '$($appName)'"  -ErrorAction SilentlyContinue))
+{
+    $myApp = New-AzureADApplication -DisplayName $appName
+}
+
+Add-AzADAppPermission -ObjectId 65d2b82a-d898-463b-a799-4a353911ff3d -ApiId 00000003-0000-0000-c000-000000000000 -PermissionId 7427e0e9-2fba-42fe-b0c0-848c9e6a8182
+
+Add-AzADAppPermission -ObjectId 65d2b82a-d898-463b-a799-4a353911ff3d -ApiId 00000003-0000-0000-c000-000000000000 -Permiss

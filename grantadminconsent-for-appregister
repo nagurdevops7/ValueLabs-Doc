@@ -1,0 +1,15 @@
+ForEach ($resourceAppAccess in $requiredResourcesAccess)
+{
+$resourceApp = Get-AzureADServicePrincipal -All $true | Where-Object {$_.AppId -eq $resourceAppAccess.ResourceAppId}
+ForEach ($permission in $resourceAppAccess.ResourceAccess)
+{
+if ($permission.Type -eq "Role")
+{
+New-AzureADServiceAppRoleAssignment -ObjectId $servicePrincipal.ObjectId -PrincipalId $servicePrincipal.ObjectId -ResourceId $resourceApp.ObjectId -Id $permission.Id
+}
+}
+}
+
+Get-AzureADApplication -All $true | ? { $_.DisplayName -match "MyApp-Nagur" } | Format-Table displayname, appid, objectid
+
+$StealthAUDITApp = Get-AzureADApplication -All $true | ? { $_.DisplayName -match "MyApp-Nagur" }

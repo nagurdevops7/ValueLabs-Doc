@@ -1,0 +1,40 @@
+# Specify events that trigger pipelines
+
+trigger: none
+pr: none
+
+# Connect devsecops repository for templates.
+
+resources:
+  repositories:
+    - repository: 'Templates'
+      name: 'The-Citation-Group-Tech/unity-devsecops'
+      type: github
+      ref: main
+      endpoint: Unity
+
+# Build Stage
+stages:
+- stage: 'MainStage'
+  displayName: "Build and Push"
+  jobs:
+  - job: Build
+    displayName: Build & Deploy
+    pool:
+     vmImage: ubuntu-latest
+    steps:
+
+      - checkout: self
+    # Building Docker Image
+      - template: YAMLTemplate\DockerBuild.yml@Templates
+        parameters:
+          ProjectName: 'Unity-graphql-gateway-dev'
+          ConnectionTypeName: 'ARMConnectionAll'
+          RegistryServiceConnection: 'ACR-Connection-Dev'
+          WebAppName: 'unitygatewaydev'
+          repository: 'unitygateway'
+          containerRegistry: unityacrdev.azurecr.io
+          tag: 'dev-v$(Build.BuildNumber)'
+          token: 'false'
+
+          

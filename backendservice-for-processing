@@ -1,0 +1,100 @@
+# Specifyevents that trigger pipelines
+trigger: none
+pr: none
+
+resources:
+  repositories:
+    - repository: 'ATLASYAMLTemplate'
+      name: 'atlasdevelopers/devsecops'
+      type: bitbucket
+      ref: main
+      endpoint: BitbucketServiceConnection
+    - repository: 'TestCases'
+      name: 'atlasdevelopers/atlas-e2e-automation'
+      type: bitbucket
+      ref: master
+      endpoint: BitbucketServiceConnection
+
+# Specify your agent name 
+pool:
+  vmImage: windows-latest
+  demands: vstest
+
+# Configuration variables
+variables:
+  BuildConfiguration: 'release'
+  BuildPlatform: 'any cpu'
+  ProjectName: 'Atlas-V1Backend'
+
+# Build Stage
+stages:
+- stage: 'Build'
+  jobs:
+  - job:
+    variables :
+    - group: Processserver-nonsecret
+    - group: WR-Atlas-V1-QA-VGroup
+    - group: WR-Atlas-Keyvault-V1-QA-VGroup
+    steps:
+    # Using build template for code to build
+    - template: ATLAS\YAMLTemplate\COREBUILDBS.yml@ATLASYAMLTemplate
+      parameters: # Passing service related parameters for build
+        ProjectName: '$(ProjectName)' # Service Name
+        solution: Citation.Atlas/Citation.Atlas.sln
+        Workdir: Citation.Atlas/Citation.Atlas.WebApp
+        workingDir: Citation.Atlas/Citation.Atlas.Wizard
+        BuildArgument: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactstagingdirectory)\\" /p:SkipExtraFilesOnServer=True'
+        BuildConfiguration: release
+        BuildPlatform: any cpu
+        mssolution: Citation.Atlas/Citation.Atlas.ProcessingService.Azure
+        msbuildArguments: '/p:Configuration=Release /p:DeployOnBuild=true /p:DeployTarget=Package /p:AutoParameterizationWebConfigConnectionStrings=false /target:Publish /p:PublishDir="$(build.artifactstagingdirectory)\\workerrole"'        
+
+    - script: dir $(build.artifactstagingdirectory)
+    - task: AzureCLI@2
+      inputs:
+        azureSubscription: 'AzureDevOpsServiceConnection-Dev'
+        scriptType: 'ps'
+        scriptLocation: 'inlineScript'
+        inlineScript: 'az storage blob upload -c backend-artifacts -f "$(build.artifactstagingdirectory)/workerrole/Atlas-V1Backend.cspkg" --account-name citationuat2 --account-key $(StorageAccountKey) --overwrite'
+
+# QA Deployment Stage
+- stage: 'QA'
+  displayName: 'QA' # Display name 
+  dependsOn: Build # Making the deployment dependent on build stage
+  condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/RC_Release_7.14.0'), not(eq(variables['Build.Reason'], 'PullRequest'))) # Condition on deployments
+  variables: # Setting of environment name and versionID
+    - name: EnvironmentName 
+      value: 'QA'
+  jobs:
+  - deployment: 'Deploy'
+    displayName: 'Deploy App to ${{variables.EnvironmentName}}'
+    environment: '${{variables.EnvironmentName}}' # Environment name
+    strategy:
+      runOnce:
+        deploy:
+            steps:
+            - template: ATLAS\YAMLTemplate\COREDEPLOYBS.yml@ATLASYAMLTemplate # Using deploy template for deployment
+              parameters: # Passing service related parameters for deployment
+                ProjectName: '$(ProjectName)' # Project Name
+                #WebAppName: 'atlasdevopswebapp' # WebAppName - sets dynamically (Need to Change as per requirement)
+                #WebAppKind: 'webApp'
+                ConnectionTypeName: 'AzureCloudServiceConnection-Dev' # Azure Subcription name
+                #packageforlinux: '$(Pipeline.Workspace)/$(ProjectName)/Citation.Atlas.WebApp.zip'
+                StorageAccount: dc3a6fd0348892135c   # for Backend Service Only
+                serviceName: citationqa-processing
+                ServiceLocation: North Europe  # for Backend Service Only
+                CsPkg: '$(Pipeline.Workspace)/$(ProjectName)/workerrole/$(ProjectName).cspkg' # for Backend Service Only
+                CsCfg: '$(Pipeline.Workspace)/$(ProjectName)/workerrole/ServiceConfiguration.Cloud.cscfg' # for Backend Service Only
+                slotName : 'Production'
+
+
+- stage: 'SmokeTest_UAT'
+  pool:
+   name: AtlasQAAgent
+  jobs:
+   - job:
+     steps:
+      - template: ATLAS\YAMLTemplate\smoketest.yml@ATLASYAMLTemplate
+        parameters: # Passing service related parameters for deployment
+                testresultapp: 'TestConfig_Backend_QA'
+                testresultartifact: 'TestResults_Backend_QA'

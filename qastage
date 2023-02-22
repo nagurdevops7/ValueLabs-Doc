@@ -1,0 +1,105 @@
+# Specify events that trigger pipelines
+
+trigger:
+ branches:
+   include:
+     - main
+ paths:
+   exclude:
+     - pipelines/*
+
+pr: none
+
+# Connect devsecops repository for templates.
+
+resources:
+  repositories:
+    - repository: 'Templates'
+      name: 'The-Citation-Group-Tech/unity-devsecops'
+      type: github
+      ref: main
+      endpoint: Unity
+
+pool:
+  vmImage: ubuntu-latest
+
+# Build Stage
+stages:
+- stage: 'QA'
+  displayName: "Build and Push"
+  jobs:
+  # - job: SonarQube
+  #   pool:
+  #    vmImage: windows-latest
+  #   steps:
+
+# # Static Code Analysis with SonarQube.
+#       - template: YAMLTemplate\SonarQube.yml@Templates
+#         parameters:
+#          sonardotnet: 'true'
+#          ProjectName: 'Unity-graphql-gateway-dev'
+#          BuildSteps:
+#             - checkout: self
+#             - task: replacetokens@5
+#               inputs:
+#                 targetFiles: |
+#                   **/*.env
+#                   **/*.env.production
+#                   **/*appsettings.json
+#                 encoding: 'auto'
+#                 tokenPattern: 'azpipelines'
+#                 writeBOM: true
+#                 actionOnMissing: 'warn'
+#                 keepToken: false
+#                 actionOnNoFiles: 'warn'
+#                 enableTransforms: false
+#                 enableRecursion: false
+#                 useLegacyPattern: false
+#                 enableTelemetry: false
+#             - task: DotNetCoreCLI@2
+#               inputs:
+#                 command: 'restore'
+#                 projects: 'unity-graphql-gateway/Unity.GraphQL.sln'
+#          dotNetCore:
+#             - task: DotNetCoreCLI@2
+#               inputs:
+#                 command: 'build'
+#                 projects: 'unity-graphql-gateway/Unity.GraphQL.sln'
+
+            # - task: DotNetCoreCLI@2
+            #   inputs:
+            #     command: 'test'
+            #     projects: 'Unity.GraphQL.Gateway/**/*Tests.csproj'
+            #     arguments: '--collect "Code Coverage"' # This is all you need to add!
+  - job: Docker
+    steps:
+    #Building Docker Image
+      - template: YAMLTemplate\DockerBuild.yml@Templates
+        parameters:
+          ProjectName: 'Unity-graphql-gateway-dev'
+          ConnectionTypeName: 'Unity-GraphDashboard-Dev-SC'
+          RegistryServiceConnection: 'ACR-Connection-Dev'
+          WebAppName: 'unitygatewayqa'
+          repository: 'unitygateway'
+          containerRegistry: unityacrdev.azurecr.io
+          tag: 'dev-$(Build.BuildNumber)'
+
+- stage: UAT
+  dependsOn: QA
+  jobs:
+  - deployment: Deploy
+    environment: UAT
+    strategy:
+     runOnce:
+        deploy:
+           steps:
+            - checkout: self
+            - template: YAMLTemplate\DockerBuild.yml@Templates
+              parameters:
+                ProjectName: 'Unity-graphql-gateway-UAT'
+                ConnectionTypeName: 'ARMConnectionAll'
+                RegistryServiceConnection: 'ACR-Connection-Dev'
+                WebAppName: 'unitygatewayuat'
+                repository: 'unitygateway'
+                containerRegistry: unityacrdev.azurecr.io
+                tag: 'uat-$(Build.BuildNumber)'       

@@ -1,0 +1,166 @@
+# Specifyevents that trigger pipelines
+trigger: none
+
+resources:
+  repositories:
+    - repository: 'ATLASYAMLTemplate'
+      name: 'atlasdevelopers/devsecops'
+      type: bitbucket
+      ref: main
+      endpoint: BitbucketServiceConnection
+   
+# Specify your agent name 
+pool:
+  vmImage: windows-latest
+  demands: vstest
+
+# Configuration variables
+variables:
+  BuildConfiguration: 'release'
+  BuildPlatform: 'any cpu'
+  ProjectName: 'Atlas-API-PROD'
+
+# Build Stage
+stages:
+- stage: 'Build'
+  displayName: 'Build' # Display name 
+  jobs:
+  - job:
+    variables:
+    - group: Processserver-KVGroup   # To replace the process server values
+    steps:
+    # Using build template for code to build
+    - template: ATLAS\YAMLTemplate\COREBUILD.yml@ATLASYAMLTemplate
+      parameters: # Passing service related parameters for build
+        ProjectName: '$(ProjectName)' # Service Name
+        solution: Citation.Atlas/Citation.Atlas.sln
+        Workdir: Citation.Atlas/Citation.Atlas.WebApp
+        BuildArgument: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactstagingdirectory)\\" /p:SkipExtraFilesOnServer=True'
+        BuildConfiguration: release
+        BuildPlatform: any cpu
+        mssolution: Citation.Atlas/Citation.Atlas.ProcessingService.Azure
+        msbuildArguments: '/p:Configuration=Release /p:DeployOnBuild=true /p:DeployTarget=Package /p:AutoParameterizationWebConfigConnectionStrings=false /target:Publish /p:PublishDir="$(build.artifactstagingdirectory)\\workerrole"'
+        replacement: true
+        webbuild: true
+        wizardbuild: false
+        sonarqube: false
+        msbuild: false
+        vsbuild: true
+        dotnet: true
+        dotnetcore: false
+    - script: curl "https://pipelines.plandek.com/deployments/v1/save_mapping?client_key=citation-ltd&access_token=dUMYx_pRDNGPDbMCvvcmqOQpTxiOEMqyNggzeUZGeKc&commit=$(Build.SourceVersion)&build=$(Build.BuildNumber)&pipeline=Atlas-API-Prod"
+      continueOnError: true    
+# BAU Deployment Stage
+- stage: 'BAU'
+  displayName: 'BAU' # Display name 
+  dependsOn: Build
+  condition: and(succeeded('Build'), eq(variables['Build.SourceBranch'], 'refs/heads/release'), not(eq(variables['Build.Reason'], 'PullRequest'))) # Condition on deployments
+  variables: # Setting of environment name and versionID
+    - name: EnvironmentName 
+      value: 'BAU'
+  jobs:
+  - deployment: 'Deploy'
+    variables:
+      - group: WR-Atlas-V1-BAU-VGroup
+    displayName: 'Deploy App to ${{variables.EnvironmentName}}'
+    environment: '${{variables.EnvironmentName}}' # Environment name
+    strategy:
+      runOnce:
+        deploy:
+            steps:
+            - template: ATLAS\YAMLTemplate\COREDEPLOY.yml@ATLASYAMLTemplate # Using deploy template for deployment
+              parameters: # Passing service related parameters for deployment
+                ProjectName: '$(ProjectName)' # Project Name
+                WebAppName: 'atlasapibau' # WebAppName - sets dynamically (Need to Change as per requirement)
+                WebAppKind: 'webApp'
+                ConnectionTypeName: 'AzureDevOpsServiceConnection-Dev' # Azure Subcription name
+                zipName: Citation.Atlas.WebAPI.zip
+                packageforlinux: '$(Pipeline.Workspace)/$(ProjectName)/$(zipName)'
+                ResourceGroupName: 'default-web-northeurope'
+                replacement: true
+                extractfiles: true
+                archivefiles: true
+                webappdeploy: true
+                slotName: 'staging'
+
+- stage: 'Swapping_BAU'
+  displayName: 'Swapping from Staging to Production'
+  dependsOn: BAU
+  condition: succeeded() # Condition on Rollback if UAT deployment fails
+  jobs:
+   - job:
+     steps:
+      - template: ATLAS\YAMLTemplate\Swapping.yml@ATLASYAMLTemplate
+        parameters:
+          ConnectionTypeName: 'AzureDevOpsServiceConnection-Dev'
+          WebAppName: 'atlasapibau'
+          SourceSlot:  'staging'
+          TargetSlot: 'atlasapibau'
+          ResourceGroupName: 'default-web-northeurope'
+          
+# PROD Deployment Stage
+- stage: 'PROD'
+  displayName: 'PROD' # Display name 
+  dependsOn: Swapping_BAU
+  condition: and(succeeded('Swapping_BAU'), eq(variables['Build.SourceBranch'], 'refs/heads/release'), not(eq(variables['Build.Reason'], 'PullRequest'))) # Condition on deployments
+  variables: # Setting of environment name and versionID
+    - name: EnvironmentName 
+      value: 'PROD'
+  jobs:
+  - deployment: 'Deploy'
+    variables:
+      - group: WR-Atlas-V1-Prod-VGroup
+    displayName: 'Deploy App to ${{variables.EnvironmentName}}'
+    environment: '${{variables.EnvironmentName}}' # Environment name
+    strategy:
+      runOnce:
+        deploy:
+            steps:
+            - template: ATLAS\YAMLTemplate\COREDEPLOY.yml@ATLASYAMLTemplate # Using deploy template for deployment
+              parameters: # Passing service related parameters for deployment
+                ProjectName: '$(ProjectName)' # Project Name
+                WebAppName: 'atlasapiprod' # WebAppName - sets dynamically (Need to Change as per requirement)
+                WebAppKind: 'webApp'
+                ConnectionTypeName: 'AzureDevOpsServiceConnection-Prod' # Service Connection Name
+                zipName: Citation.Atlas.WebAPI.zip
+                packageforlinux: '$(Pipeline.Workspace)/$(ProjectName)/$(zipName)'
+                ResourceGroupName: 'atlasprodgroup'
+                replacement: true
+                extractfiles: true
+                archivefiles: true
+                webappdeploy: true
+                slotName: 'prelive'
+            - script: curl "https://pipelines.plandek.com/deployments/v1/save?client_key=citation-ltd&access_token=dUMYx_pRDNGPDbMCvvcmqOQpTxiOEMqyNggzeUZGeKc&build=$(Build.BuildNumber)&pipeline=Atlas-API-Prod&branch_name=$(Build.SourceBranchName)&status=success"
+              continueOnError: true
+# DR Deployment Stage
+- stage: 'DR'
+  displayName: 'DR' # Display name 
+  dependsOn: PROD
+  condition: and(succeeded('PROD'), eq(variables['Build.SourceBranch'], 'refs/heads/release'), not(eq(variables['Build.Reason'], 'PullRequest'))) # Condition on deployments
+  variables: # Setting of environment name and versionID
+    - name: EnvironmentName 
+      value: 'DR'
+  jobs:
+  - deployment: 'Deploy'
+    variables:
+      - group: WR-Atlas-V1-Prod-VGroup
+    displayName: 'Deploy App to ${{variables.EnvironmentName}}'
+    environment: '${{variables.EnvironmentName}}' # Environment name
+    strategy:
+      runOnce:
+        deploy:
+            steps:
+            - template: ATLAS\YAMLTemplate\COREDEPLOY.yml@ATLASYAMLTemplate # Using deploy template for deployment
+              parameters: # Passing service related parameters for deployment
+                ProjectName: '$(ProjectName)' # Project Name
+                WebAppName: 'atlasapiprod-sec-we' # WebAppName - sets dynamically (Need to Change as per requirement)
+                WebAppKind: 'webApp'
+                ConnectionTypeName: 'AzureDevOpsServiceConnection-Prod' # Service Connection Name
+                zipName: Citation.Atlas.WebAPI.zip
+                packageforlinux: '$(Pipeline.Workspace)/$(ProjectName)/$(zipName)'
+                ResourceGroupName: 'atlasprodgroup-sec-we'
+                replacement: true
+                extractfiles: true
+                archivefiles: true
+                webappdeploy: true
+                slotName: 'staging'
